@@ -25,6 +25,8 @@ import com.example.webhooksender.WebhookApp
 import com.example.webhooksender.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
+enum class Screen { Send, History, Settings }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WebhookAppScreen() {
