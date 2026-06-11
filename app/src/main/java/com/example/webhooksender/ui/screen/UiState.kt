@@ -18,7 +18,8 @@ data class MessageItem(
     val id: Int,
     val keyword: String,
     val content: String,
-    val deadline: String = "",
+    val priority: String,
+    val deadline: String,
     val timeStr: String,
     val success: Boolean,
     val errorInfo: String?

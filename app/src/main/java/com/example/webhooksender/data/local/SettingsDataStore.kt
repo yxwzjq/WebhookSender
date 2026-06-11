@@ -12,26 +12,15 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsDataStore(private val context: Context) {
     companion object {
         val WEBHOOK_URL = stringPreferencesKey("webhook_url")
-        val LAST_KEYWORD = stringPreferencesKey("last_keyword")
     }
 
     val webhookUrl: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[WEBHOOK_URL] ?: ""
     }
 
-    val lastKeyword: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[LAST_KEYWORD] ?: ""
-    }
-
     suspend fun saveWebhookUrl(url: String) {
         context.dataStore.edit { preferences ->
             preferences[WEBHOOK_URL] = url
-        }
-    }
-
-    suspend fun saveLastKeyword(keyword: String) {
-        context.dataStore.edit { preferences ->
-            preferences[LAST_KEYWORD] = keyword
         }
     }
 }

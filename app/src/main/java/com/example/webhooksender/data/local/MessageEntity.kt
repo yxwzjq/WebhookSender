@@ -9,6 +9,7 @@ data class MessageEntity(
     val id: Int = 0,
     val keyword: String,
     val content: String,
+    val priority: String = "一般",
     val deadline: String = "",
     val webhookUrl: String,
     val sendTime: Long,
@@ -20,6 +21,9 @@ data class MessageEntity(
 interface MessageDao {
     @Query("SELECT * FROM messages ORDER BY sendTime DESC")
     fun getAllMessages(): Flow<List<MessageEntity>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM messages WHERE content = :content LIMIT 1)")
+    suspend fun hasContent(content: String): Boolean
 
     @Insert
     suspend fun insertMessage(message: MessageEntity): Long

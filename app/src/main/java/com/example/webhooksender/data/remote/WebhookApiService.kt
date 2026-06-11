@@ -21,13 +21,32 @@ class WebhookApiService {
         data class Error(val message: String) : SendResult()
     }
 
-    suspend fun sendMessage(webhookUrl: String, keyword: String, content: String, deadline: String = ""): SendResult {
+    suspend fun sendMessage(
+        webhookUrl: String,
+        keyword: String,
+        content: String,
+        priority: String,
+        deadline: String = ""
+    ): SendResult {
         return try {
+            val textBuilder = StringBuilder()
+            textBuilder.append(keyword)
+            if (priority.isNotBlank()) {
+                textBuilder.append(" 【").append(priority).append("】")
+            }
+            if (deadline.isNotBlank()) {
+                textBuilder.append("\n截止时间：").append(deadline)
+            }
+            textBuilder.append("\n").append(content)
+
+            val fullText = textBuilder.toString()
+
             val jsonBody = JSONObject().apply {
                 put("keyword", keyword)
                 put("content", content)
+                put("priority", priority)
                 put("deadline", deadline)
-                put("text", if (deadline.isNotBlank()) "【截止时间：$deadline】\n$keyword\n$content" else "$keyword\n$content")
+                put("text", fullText)
                 put("timestamp", System.currentTimeMillis())
             }
 

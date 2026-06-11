@@ -11,9 +11,15 @@ class MessageRepository(
 ) {
     val allMessages: Flow<List<MessageEntity>> = messageDao.getAllMessages()
 
-    suspend fun sendMessage(webhookUrl: String, keyword: String, content: String, deadline: String = ""): Boolean {
+    suspend fun sendMessage(
+        webhookUrl: String,
+        keyword: String,
+        content: String,
+        priority: String = "一般",
+        deadline: String = ""
+    ): Boolean {
         val sendTime = System.currentTimeMillis()
-        val result = webhookApiService.sendMessage(webhookUrl, keyword, content, deadline)
+        val result = webhookApiService.sendMessage(webhookUrl, keyword, content, priority, deadline)
 
         val success = result is WebhookApiService.SendResult.Success
         val errorSummary = when (result) {
@@ -25,6 +31,7 @@ class MessageRepository(
             MessageEntity(
                 keyword = keyword,
                 content = content,
+                priority = priority,
                 deadline = deadline,
                 webhookUrl = webhookUrl,
                 sendTime = sendTime,

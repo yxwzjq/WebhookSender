@@ -41,10 +41,7 @@ fun WebhookAppScreen() {
     var currentScreen by remember { mutableStateOf(Screen.Send) }
 
     val sendViewModel: SendViewModel = viewModel(
-        factory = SendViewModel.provideFactory(
-            app.container.messageRepository,
-            app.container.settingsDataStore
-        )
+        factory = SendViewModel.provideFactory(app.container.messageRepository)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.provideFactory(app.container.settingsDataStore)
@@ -68,15 +65,7 @@ fun WebhookAppScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        when (currentScreen) {
-                            Screen.Send -> "WebhookSender"
-                            Screen.History -> "发送历史"
-                            Screen.Settings -> "设置"
-                        }
-                    )
-                },
+                title = { Text("TodoRec") },
                 actions = {
                     IconButton(onClick = { showSettings = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "设置")
@@ -126,131 +115,158 @@ private fun SendScreen(
 ) {
     val context = LocalContext.current
     val webhookUrl by settingsViewModel.webhookUrl.collectAsState()
-    val savedKeyword by settingsViewModel.lastKeyword.collectAsState()
-    var keyword by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var priority by remember { mutableStateOf("一般") }
     var deadline by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     val sendState by sendViewModel.uiState.collectAsState()
     val history by sendViewModel.historyMessages.collectAsState(initial = emptyList())
 
-    // 初始化关键字（记忆上次发送的关键字）
-    LaunchedEffect(savedKeyword) {
-        if (keyword.isEmpty()) {
-            keyword = savedKeyword
-        }
-    }
+    // Priority dropdown
+    var priorityExpanded by remember { mutableStateOf(false) }
+    val priorities = listOf("高优", "一般", "低优")
+    val priorityColors = mapOf(
+        "高优" to Color(0xFFE53935),
+        "一般" to Color(0xFFFF9800),
+        "低优" to Color(0xFF4CAF50)
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 用途说明
-        Card(
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = SuccessGreen,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "本APP用于工作待办项快捷记录。",
-                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                    color = Color(0xFF2E7D32)
-                )
-            }
-        }
-
-        // Webhook URL indicator
-        Card(
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (webhookUrl.isNotBlank())
-                    Color(0xFFE3F2FD) else Color(0xFFFFF3E0)
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (webhookUrl.isNotBlank())
-                        Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = if (webhookUrl.isNotBlank()) PrimaryBlue else Color(0xFFFF9800),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (webhookUrl.isNotBlank())
-                        "Webhook 已配置" else "请先配置 Webhook 地址",
-                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                    color = if (webhookUrl.isNotBlank()) PrimaryBlue else Color(0xFFFF9800)
-                )
-            }
-        }
-
-        // Keyword input
-        OutlinedTextField(
-            value = keyword,
-            onValueChange = { keyword = it },
-            label = { Text("关键字") },
-            placeholder = { Text("输入关键字...") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        // Content input (renamed to 工作待办项)
+        // Todo item input
         OutlinedTextField(
             value = content,
             onValueChange = { content = it },
-            label = { Text("工作待办项") },
-            placeholder = { Text("输入工作待办事项...") },
+            label = { Text("待办项") },
+            placeholder = { Text("输入待办事项...") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp),
-            minLines = 4
+                .height(140.dp),
+            minLines = 3,
+            maxLines = 6
         )
 
-        // Deadline date picker
-        Box(modifier = Modifier.fillMaxWidth()) {
+        // Priority selector
+        ExposedDropdownMenuBox(
+            expanded = priorityExpanded,
+            onExpandedChange = { priorityExpanded = it }
+        ) {
             OutlinedTextField(
-                value = deadline,
+                value = priority,
                 onValueChange = { },
-                label = { Text("截止时间") },
-                placeholder = { Text("选择截止日期...") },
-                modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
-                trailingIcon = {
+                label = { Text("优先级") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityExpanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                priorityColors[priority] ?: Color.Gray,
+                                RoundedCornerShape(6.dp)
+                            )
+                    )
+                }
+            )
+            ExposedDropdownMenu(
+                expanded = priorityExpanded,
+                onDismissRequest = { priorityExpanded = false }
+            ) {
+                priorities.forEach { p ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(
+                                            priorityColors[p] ?: Color.Gray,
+                                            RoundedCornerShape(5.dp)
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(p)
+                            }
+                        },
+                        onClick = {
+                            priority = p
+                            priorityExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // Deadline date picker
+        OutlinedTextField(
+            value = deadline,
+            onValueChange = { },
+            label = { Text("截止时间（可选）") },
+            placeholder = { Text("选择截止日期...") },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            trailingIcon = {
+                Row {
+                    if (deadline.isNotBlank()) {
+                        IconButton(onClick = { deadline = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "清除")
+                        }
+                    }
                     IconButton(onClick = { showDatePicker = true }) {
                         Icon(Icons.Default.CalendarToday, contentDescription = "选择日期")
                     }
                 }
-            )
+            }
+        )
+
+        // Preview card
+        if (content.isNotBlank()) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "预览",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = MaterialTheme.typography.labelMedium.fontSize,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = buildString {
+                            append("todos")
+                            if (priority.isNotBlank()) {
+                                append(" 【").append(priority).append("】")
+                            }
+                            if (deadline.isNotBlank()) {
+                                append("\n截止时间：").append(deadline)
+                            }
+                            append("\n").append(content)
+                        },
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize
+                    )
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Send button
         Button(
             onClick = {
-                sendViewModel.sendMessage(webhookUrl, keyword, content, deadline)
+                sendViewModel.sendMessage(webhookUrl, "todos", content, priority, deadline)
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = sendState != SendUiState.Loading && webhookUrl.isNotBlank(),
+            enabled = sendState != SendUiState.Loading && webhookUrl.isNotBlank() && content.isNotBlank(),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (sendState == SendUiState.Loading) {
@@ -356,6 +372,12 @@ private fun HistoryScreen(sendViewModel: SendViewModel) {
 
 @Composable
 private fun HistoryCard(item: MessageItem) {
+    val priorityColors = mapOf(
+        "高优" to Color(0xFFE53935),
+        "一般" to Color(0xFFFF9800),
+        "低优" to Color(0xFF4CAF50)
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
@@ -386,11 +408,31 @@ private fun HistoryCard(item: MessageItem) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = item.keyword.ifBlank { "（无关键字）" },
-                        fontWeight = FontWeight.Bold,
-                        fontSize = MaterialTheme.typography.bodyLarge.fontSize
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.content,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (item.priority.isNotBlank()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = (priorityColors[item.priority] ?: Color.Gray).copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = item.priority,
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    color = priorityColors[item.priority] ?: Color.Gray,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = item.timeStr,
                         fontSize = MaterialTheme.typography.labelMedium.fontSize,
@@ -398,20 +440,13 @@ private fun HistoryCard(item: MessageItem) {
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = item.content,
-                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                    color = Color.DarkGray,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
                 if (item.deadline.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "截止：${item.deadline}",
                         fontSize = MaterialTheme.typography.labelSmall.fontSize,
                         color = Color(0xFFE53935)
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
@@ -460,6 +495,7 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
     val webhookUrl by viewModel.webhookUrl.collectAsState()
     var urlText by remember { mutableStateOf(webhookUrl) }
     val saved by viewModel.saveResult.collectAsState()
+    val isConfigured = webhookUrl.isNotBlank()
 
     LaunchedEffect(Unit) {
         urlText = webhookUrl
@@ -469,7 +505,64 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
         onDismissRequest = { onDismiss() },
         title = { Text("设置") },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // 功能说明
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = SuccessGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "本APP用于工作待办项快捷记录，支持优先级标记和截止时间设置。",
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                            color = Color(0xFF2E7D32)
+                        )
+                    }
+                }
+
+                // 配置状态
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isConfigured)
+                            Color(0xFFE3F2FD) else Color(0xFFFFF3E0)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isConfigured)
+                                Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (isConfigured) PrimaryBlue else Color(0xFFFF9800),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isConfigured)
+                                "Webhook 已配置" else "请先配置 Webhook 地址",
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                            color = if (isConfigured) PrimaryBlue else Color(0xFFFF9800)
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = urlText,
                     onValueChange = { urlText = it },
@@ -477,15 +570,13 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
                     placeholder = { Text("https://example.com/webhook") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "请填写要接收消息的目标 Webhook URL",
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     color = Color.Gray
                 )
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "版本：1.0.1",
+                    "版本：1.0.2",
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     color = Color.Gray
                 )
