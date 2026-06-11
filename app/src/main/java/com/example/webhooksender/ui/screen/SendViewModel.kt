@@ -12,8 +12,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.webhooksender.data.local.SettingsDataStore
+import kotlinx.coroutines.launch
+
 class SendViewModel(
-    private val messageRepository: MessageRepository
+    private val messageRepository: MessageRepository,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
     val historyMessages: Flow<List<MessageItem>> = messageRepository.allMessages
         .map { entities -> entities.map { it.toMessageItem() } }
@@ -21,7 +25,7 @@ class SendViewModel(
     private val _uiState = MutableStateFlow<SendUiState>(SendUiState.Idle)
     val uiState: StateFlow<SendUiState> = _uiState.asStateFlow()
 
-    fun sendMessage(webhookUrl: String, keyword: String, content: String) {
+    fun sendMessage(webhookUrl: String, keyword: String, content: String, deadline: String = "") {
         if (webhookUrl.isBlank()) {
             _uiState.value = SendUiState.Error("请先配置 Webhook 地址")
             return
@@ -34,9 +38,11 @@ class SendViewModel(
         _uiState.value = SendUiState.Loading
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val success = messageRepository.sendMessage(webhookUrl, keyword, content)
+                val success = messageRepository.sendMessage(webhookUrl, keyword, content, deadline)
                 if (success) {
                     _uiState.value = SendUiState.Success("发送成功！")
+                    // 记忆关键字
+                    settingsDataStore.saveLastKeyword(keyword)
                 } else {
                     _uiState.value = SendUiState.Error("发送失败，已保存到历史记录")
                 }
@@ -56,6 +62,7 @@ class SendViewModel(
             id = id,
             keyword = keyword,
             content = content,
+            deadline = deadline,
             timeStr = sdf.format(Date(sendTime)),
             success = success,
             errorInfo = errorSummary
@@ -63,11 +70,14 @@ class SendViewModel(
     }
 
     companion object {
-        fun provideFactory(repository: MessageRepository): ViewModelProvider.Factory =
+        fun provideFactory(
+            repository: MessageRepository,
+            settingsDataStore: SettingsDataStore
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return SendViewModel(repository) as T
+                    return SendViewModel(repository, settingsDataStore) as T
                 }
             }
     }

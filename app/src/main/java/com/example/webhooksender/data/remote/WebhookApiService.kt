@@ -21,12 +21,13 @@ class WebhookApiService {
         data class Error(val message: String) : SendResult()
     }
 
-    suspend fun sendMessage(webhookUrl: String, keyword: String, content: String): SendResult {
+    suspend fun sendMessage(webhookUrl: String, keyword: String, content: String, deadline: String = ""): SendResult {
         return try {
             val jsonBody = JSONObject().apply {
                 put("keyword", keyword)
                 put("content", content)
-                put("text", "$keyword\n$content")
+                put("deadline", deadline)
+                put("text", if (deadline.isNotBlank()) "【截止时间：$deadline】\n$keyword\n$content" else "$keyword\n$content")
                 put("timestamp", System.currentTimeMillis())
             }
 

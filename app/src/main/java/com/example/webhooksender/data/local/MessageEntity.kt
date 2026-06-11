@@ -9,6 +9,7 @@ data class MessageEntity(
     val id: Int = 0,
     val keyword: String,
     val content: String,
+    val deadline: String = "",
     val webhookUrl: String,
     val sendTime: Long,
     val success: Boolean,
@@ -28,4 +29,7 @@ interface MessageDao {
 
     @Query("DELETE FROM messages")
     suspend fun deleteAllMessages()
+
+    @Query("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY sendTime DESC LIMIT 10)")
+    suspend fun pruneOldMessages()
 }

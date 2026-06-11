@@ -10,6 +10,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import java.text.SimpleDateFormat
+import java.util.*
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +41,10 @@ fun WebhookAppScreen() {
     var currentScreen by remember { mutableStateOf(Screen.Send) }
 
     val sendViewModel: SendViewModel = viewModel(
-        factory = SendViewModel.provideFactory(app.container.messageRepository)
+        factory = SendViewModel.provideFactory(
+            app.container.messageRepository,
+            app.container.settingsDataStore
+        )
     )
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.provideFactory(app.container.settingsDataStore)
@@ -109,16 +118,28 @@ fun WebhookAppScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SendScreen(
     sendViewModel: SendViewModel,
     settingsViewModel: SettingsViewModel
 ) {
+    val context = LocalContext.current
     val webhookUrl by settingsViewModel.webhookUrl.collectAsState()
+    val savedKeyword by settingsViewModel.lastKeyword.collectAsState()
     var keyword by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var deadline by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
     val sendState by sendViewModel.uiState.collectAsState()
     val history by sendViewModel.historyMessages.collectAsState(initial = emptyList())
+
+    // 初始化关键字（记忆上次发送的关键字）
+    LaunchedEffect(savedKeyword) {
+        if (keyword.isEmpty()) {
+            keyword = savedKeyword
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -127,6 +148,32 @@ private fun SendScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 用途说明
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = SuccessGreen,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "本APP用于工作待办项快捷记录。",
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                    color = Color(0xFF2E7D32)
+                )
+            }
+        }
+
         // Webhook URL indicator
         Card(
             shape = RoundedCornerShape(8.dp),
@@ -168,22 +215,39 @@ private fun SendScreen(
             singleLine = true
         )
 
-        // Content input
+        // Content input (renamed to 工作待办项)
         OutlinedTextField(
             value = content,
             onValueChange = { content = it },
-            label = { Text("正文") },
-            placeholder = { Text("输入要发送的正文内容...") },
+            label = { Text("工作待办项") },
+            placeholder = { Text("输入工作待办事项...") },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp),
             minLines = 4
         )
 
+        // Deadline date picker
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = deadline,
+                onValueChange = { },
+                label = { Text("截止时间") },
+                placeholder = { Text("选择截止日期...") },
+                modifier = Modifier.fillMaxWidth(),
+                readOnly = true,
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "选择日期")
+                    }
+                }
+            )
+        }
+
         // Send button
         Button(
             onClick = {
-                sendViewModel.sendMessage(webhookUrl, keyword, content)
+                sendViewModel.sendMessage(webhookUrl, keyword, content, deadline)
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = sendState != SendUiState.Loading && webhookUrl.isNotBlank(),
@@ -227,6 +291,31 @@ private fun SendScreen(
             history.take(3).forEach { item ->
                 HistoryCard(item)
             }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        deadline = sdf.format(Date(millis))
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("取消")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -316,6 +405,14 @@ private fun HistoryCard(item: MessageItem) {
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (item.deadline.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "截止：${item.deadline}",
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                        color = Color(0xFFE53935)
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -383,6 +480,12 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "请填写要接收消息的目标 Webhook URL",
+                    fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "版本：1.0.1",
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     color = Color.Gray
                 )

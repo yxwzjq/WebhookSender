@@ -13,6 +13,9 @@ class SettingsViewModel(
     val webhookUrl: StateFlow<String> = settingsDataStore.webhookUrl
         .stateIn(viewModelScope, SharingStarted.Lazily, "")
 
+    val lastKeyword: StateFlow<String> = settingsDataStore.lastKeyword
+        .stateIn(viewModelScope, SharingStarted.Lazily, "")
+
     private val _saveResult = MutableStateFlow(false)
     val saveResult: StateFlow<Boolean> = _saveResult.asStateFlow()
 
