@@ -92,9 +92,9 @@ fun WebhookAppScreen() {
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             when (currentScreen) {
-                Screen.Send -> SendScreen(sendViewModel, settingsViewModel)
+                Screen.Send -> SendScreen(sendViewModel, settingsViewModel) { showSettings = true }
                 Screen.History -> HistoryScreen(sendViewModel)
-                else -> SendScreen(sendViewModel, settingsViewModel)
+                else -> SendScreen(sendViewModel, settingsViewModel) { showSettings = true }
             }
         }
     }
@@ -111,12 +111,13 @@ fun WebhookAppScreen() {
 @Composable
 private fun SendScreen(
     sendViewModel: SendViewModel,
-    settingsViewModel: SettingsViewModel
+    settingsViewModel: SettingsViewModel,
+    onOpenSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val webhookUrl by settingsViewModel.webhookUrl.collectAsState()
     var content by remember { mutableStateOf("") }
-    var priority by remember { mutableStateOf("一般") }
+    var priority by remember { mutableStateOf("P1一般") }
     var deadline by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     val sendState by sendViewModel.uiState.collectAsState()
@@ -124,12 +125,14 @@ private fun SendScreen(
 
     // Priority dropdown
     var priorityExpanded by remember { mutableStateOf(false) }
-    val priorities = listOf("高优", "一般", "低优")
+    val priorities = listOf("P0高优", "P1一般", "P2低优")
     val priorityColors = mapOf(
-        "高优" to Color(0xFFE53935),
-        "一般" to Color(0xFFFF9800),
-        "低优" to Color(0xFF4CAF50)
+        "P0高优" to Color(0xFFCC0000),
+        "P1一般" to Color(0xFF777777),
+        "P2低优" to Color(0xFF008800)
     )
+
+    val isConfigured = webhookUrl.isNotBlank()
 
     Column(
         modifier = Modifier
@@ -138,6 +141,46 @@ private fun SendScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 未配置 webhook 提示
+        if (!isConfigured) {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF3E0)
+                ),
+                onClick = onOpenSettings,
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "请首先配置 Webhook 地址",
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                        color = Color(0xFFF57C00),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         // Todo item input
         OutlinedTextField(
             value = content,
@@ -168,10 +211,10 @@ private fun SendScreen(
                 leadingIcon = {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(10.dp)
                             .background(
                                 priorityColors[priority] ?: Color.Gray,
-                                RoundedCornerShape(6.dp)
+                                RoundedCornerShape(5.dp)
                             )
                     )
                 }
@@ -233,14 +276,14 @@ private fun SendScreen(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = "预览",
                         fontWeight = FontWeight.Bold,
-                        fontSize = MaterialTheme.typography.labelMedium.fontSize,
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
                         color = Color.Gray
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = buildString {
                             append("todos")
@@ -266,7 +309,7 @@ private fun SendScreen(
                 sendViewModel.sendMessage(webhookUrl, "todos", content, priority, deadline)
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = sendState != SendUiState.Loading && webhookUrl.isNotBlank() && content.isNotBlank(),
+            enabled = sendState != SendUiState.Loading && isConfigured && content.isNotBlank(),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (sendState == SendUiState.Loading) {
@@ -300,9 +343,9 @@ private fun SendScreen(
         if (history.isNotEmpty()) {
             Text(
                 "最近发送",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
             history.take(3).forEach { item ->
                 HistoryCard(item)
@@ -360,8 +403,8 @@ private fun HistoryScreen(sendViewModel: SendViewModel) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             items(messages) { item ->
                 HistoryCard(item)
@@ -373,95 +416,73 @@ private fun HistoryScreen(sendViewModel: SendViewModel) {
 @Composable
 private fun HistoryCard(item: MessageItem) {
     val priorityColors = mapOf(
-        "高优" to Color(0xFFE53935),
-        "一般" to Color(0xFFFF9800),
-        "低优" to Color(0xFF4CAF50)
+        "P0高优" to Color(0xFFCC0000),
+        "P1一般" to Color(0xFF777777),
+        "P2低优" to Color(0xFF008800)
     )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // 彩色优先级圆点
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
+                    .size(10.dp)
                     .background(
-                        if (item.success) SuccessGreen else ErrorRed,
-                        shape = RoundedCornerShape(2.dp)
+                        priorityColors[item.priority] ?: Color.Gray,
+                        RoundedCornerShape(5.dp)
                     )
             )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
-            ) {
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = item.content,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (item.priority.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = (priorityColors[item.priority] ?: Color.Gray).copy(alpha = 0.12f)
-                            ) {
-                                Text(
-                                    text = item.priority,
-                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                                    color = priorityColors[item.priority] ?: Color.Gray,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = item.content,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(
                         text = item.timeStr,
-                        fontSize = MaterialTheme.typography.labelMedium.fontSize,
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
                         color = Color.Gray
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
                 if (item.deadline.isNotBlank()) {
                     Text(
-                        text = "截止：${item.deadline}",
+                        text = "截止 ${item.deadline}",
                         fontSize = MaterialTheme.typography.labelSmall.fontSize,
                         color = Color(0xFFE53935)
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (item.success) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                ) {
-                    Text(
-                        text = if (item.success) "✓ 成功" else "✗ ${item.errorInfo ?: "失败"}",
-                        color = if (item.success) SuccessGreen else ErrorRed,
-                        fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
                 }
             }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // 状态标签
+            val statusText = if (item.success) "✓" else "✗"
+            Text(
+                text = statusText,
+                color = if (item.success) SuccessGreen else ErrorRed,
+                fontSize = MaterialTheme.typography.labelMedium.fontSize,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
