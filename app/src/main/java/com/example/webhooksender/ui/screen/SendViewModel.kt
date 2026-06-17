@@ -80,7 +80,7 @@ class SendViewModel(
                 _uiState.value = SendUiState.Error("发送异常: ${e.message}")
             }
         }
-    }
+    fun clearUiState() {
         _uiState.value = SendUiState.Idle
     }
 
