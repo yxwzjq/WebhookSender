@@ -52,7 +52,35 @@ class SendViewModel(
         }
     }
 
-    fun clearUiState() {
+    fun sendFeedback(
+        content: String
+    ) {
+        if (content.isBlank()) {
+            _uiState.value = SendUiState.Error("反馈内容不能为空")
+            return
+        }
+
+        _uiState.value = SendUiState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val feedbackWebhookUrl = "https://connector.dingtalk.com/webhook/flow/1039a3bbd13521072b9f0006"
+                val success = messageRepository.sendMessage(
+                    webhookUrl = feedbackWebhookUrl,
+                    keyword = "意见反馈",
+                    content = content,
+                    priority = "",
+                    deadline = ""
+                )
+                if (success) {
+                    _uiState.value = SendUiState.Success("发送成功！")
+                } else {
+                    _uiState.value = SendUiState.Error("发送失败，已保存到历史记录")
+                }
+            } catch (e: Exception) {
+                _uiState.value = SendUiState.Error("发送异常: ${e.message}")
+            }
+        }
+    }
         _uiState.value = SendUiState.Idle
     }
 

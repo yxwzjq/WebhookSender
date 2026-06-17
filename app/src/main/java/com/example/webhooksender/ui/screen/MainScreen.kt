@@ -31,7 +31,7 @@ import com.example.webhooksender.WebhookApp
 import com.example.webhooksender.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
-enum class Screen { Send, History, Settings }
+enum class Screen { Send, History, Feedback }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +87,12 @@ fun WebhookAppScreen() {
                     selected = currentScreen == Screen.History,
                     onClick = { currentScreen = Screen.History }
                 )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Edit, contentDescription = "反馈") },
+                    label = { Text("反馈") },
+                    selected = currentScreen == Screen.Feedback,
+                    onClick = { currentScreen = Screen.Feedback }
+                )
             }
         }
     ) { paddingValues ->
@@ -94,7 +100,7 @@ fun WebhookAppScreen() {
             when (currentScreen) {
                 Screen.Send -> SendScreen(sendViewModel, settingsViewModel) { showSettings = true }
                 Screen.History -> HistoryScreen(sendViewModel)
-                else -> SendScreen(sendViewModel, settingsViewModel) { showSettings = true }
+                Screen.Feedback -> FeedbackScreen(sendViewModel)
             }
         }
     }
@@ -104,6 +110,124 @@ fun WebhookAppScreen() {
             viewModel = settingsViewModel,
             onDismiss = { showSettings = false }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FeedbackScreen(
+    sendViewModel: SendViewModel
+) {
+    var content by remember { mutableStateOf("") }
+    val sendState by sendViewModel.uiState.collectAsState()
+    val history by sendViewModel.historyMessages.collectAsState(initial = emptyList())
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // 功能说明
+        Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "欢迎提交软件修改意见，帮助我们做得更好",
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                    color = Color(0xFF2E7D32),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // 反馈意见输入框
+        OutlinedTextField(
+            value = content,
+            onValueChange = { if (it.length <= 100) content = it },
+            label = { Text("反馈意见") },
+            placeholder = { Text("请输入您的意见或建议...") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            minLines = 4,
+            maxLines = 8,
+            supportingText = {
+                Text(
+                    text = "${content.length}/100",
+                    color = if (content.length >= 100) Color.Red else Color.Gray
+                )
+            },
+            isError = content.length >= 100
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Send button
+        Button(
+            onClick = {
+                sendViewModel.sendFeedback(content)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = sendState != SendUiState.Loading && content.isNotBlank(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (sendState == SendUiState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            } else {
+                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(if (sendState == SendUiState.Loading) "发送中..." else "发送")
+        }
+
+        // Status indicator
+        when (sendState) {
+            is SendUiState.Success -> StatusChip(
+                text = (sendState as SendUiState.Success).message,
+                color = SuccessGreen
+            )
+            is SendUiState.Error -> StatusChip(
+                text = (sendState as SendUiState.Error).message,
+                color = ErrorRed
+            )
+            else -> {}
+        }
+
+        // Recent feedback history preview
+        val feedbackHistory = history.filter { it.keyword == "意见反馈" }
+        if (feedbackHistory.isNotEmpty()) {
+            Text(
+                "最近反馈",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            feedbackHistory.take(3).forEach { item ->
+                HistoryCard(item)
+            }
+        }
     }
 }
 
@@ -415,6 +539,7 @@ private fun HistoryScreen(sendViewModel: SendViewModel) {
 
 @Composable
 private fun HistoryCard(item: MessageItem) {
+    val isFeedback = item.keyword == "意见反馈"
     val priorityColors = mapOf(
         "P0高优" to Color(0xFFCC0000),
         "P1一般" to Color(0xFF777777),
@@ -433,15 +558,26 @@ private fun HistoryCard(item: MessageItem) {
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 彩色优先级圆点
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(
-                        priorityColors[item.priority] ?: Color.Gray,
-                        RoundedCornerShape(5.dp)
-                    )
-            )
+            // 反馈消息：显示彩色圆点图标；待办消息：显示优先级圆点
+            if (isFeedback) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            Color(0xFF0097A7),
+                            RoundedCornerShape(5.dp)
+                        )
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            priorityColors[item.priority] ?: Color.Gray,
+                            RoundedCornerShape(5.dp)
+                        )
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
@@ -451,7 +587,7 @@ private fun HistoryCard(item: MessageItem) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = item.content,
+                        text = if (isFeedback) "【意见反馈】${item.content}" else item.content,
                         fontWeight = FontWeight.Medium,
                         fontSize = MaterialTheme.typography.bodyMedium.fontSize,
                         maxLines = 1,
@@ -464,7 +600,7 @@ private fun HistoryCard(item: MessageItem) {
                         color = Color.Gray
                     )
                 }
-                if (item.deadline.isNotBlank()) {
+                if (!isFeedback && item.deadline.isNotBlank()) {
                     Text(
                         text = "截止 ${item.deadline}",
                         fontSize = MaterialTheme.typography.labelSmall.fontSize,
@@ -597,7 +733,7 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
                     color = Color.Gray
                 )
                 Text(
-                    "版本：1.0.2",
+                    "版本：1.0.3",
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     color = Color.Gray
                 )
