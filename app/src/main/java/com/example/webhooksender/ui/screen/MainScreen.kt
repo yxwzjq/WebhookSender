@@ -32,6 +32,7 @@ import com.example.webhooksender.ui.theme.*
 import androidx.annotation.StringRes
 import com.example.webhooksender.R
 
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.flow.collectLatest
 
 enum class Screen { Send, History, Feedback, Help }
