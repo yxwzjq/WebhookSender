@@ -29,9 +29,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.webhooksender.WebhookApp
 import com.example.webhooksender.ui.theme.*
+import androidx.annotation.StringRes
+import com.example.webhooksender.R
+
 import kotlinx.coroutines.flow.collectLatest
 
-enum class Screen { Send, History, Feedback }
+enum class Screen { Send, History, Feedback, Help }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +96,12 @@ fun WebhookAppScreen() {
                     selected = currentScreen == Screen.Feedback,
                     onClick = { currentScreen = Screen.Feedback }
                 )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Help, contentDescription = "帮助") },
+                    label = { Text("帮助") },
+                    selected = currentScreen == Screen.Help,
+                    onClick = { currentScreen = Screen.Help }
+                )
             }
         }
     ) { paddingValues ->
@@ -101,6 +110,7 @@ fun WebhookAppScreen() {
                 Screen.Send -> SendScreen(sendViewModel, settingsViewModel) { showSettings = true }
                 Screen.History -> HistoryScreen(sendViewModel)
                 Screen.Feedback -> FeedbackScreen(sendViewModel)
+                Screen.Help -> HelpScreen()
             }
         }
     }
@@ -733,7 +743,7 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
                     color = Color.Gray
                 )
                 Text(
-                    "版本：1.0.3",
+                    "版本：1.0.4",
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     color = Color.Gray
                 )
@@ -757,6 +767,122 @@ fun SettingsDialog(viewModel: SettingsViewModel, onDismiss: () -> Unit) {
         if (saved) {
             viewModel.resetSaveResult()
             onDismiss()
+        }
+    }
+}
+
+@Composable
+private fun HelpScreen() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Text(
+                text = stringResource(id = R.string.help_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        item { HelpCard(title = R.string.help_app_desc_title, body = R.string.help_app_desc) }
+
+        item {
+            Text(
+                text = stringResource(id = R.string.help_steps_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        item { HelpStepCard(stepTitle = R.string.help_step_1) }
+        item { HelpStepCard(stepTitle = R.string.help_step_2) }
+        item {
+            HelpStepCard(
+                stepTitle = R.string.help_step_3_1,
+                subSteps = listOf(
+                    R.string.help_step_3_1_1,
+                    R.string.help_step_3_1_2,
+                    R.string.help_step_3_1_3
+                )
+            )
+        }
+        item {
+            HelpStepCard(
+                stepTitle = R.string.help_step_3_2,
+                subSteps = listOf(
+                    R.string.help_step_3_2_1,
+                    R.string.help_step_3_2_2,
+                    R.string.help_step_3_2_3
+                )
+            )
+        }
+        item {
+            HelpStepCard(
+                stepTitle = R.string.help_step_3_3,
+                subSteps = listOf(
+                    R.string.help_step_3_3_1,
+                    R.string.help_step_3_3_2
+                )
+            )
+        }
+        item { HelpStepCard(stepTitle = R.string.help_step_4) }
+        item { HelpStepCard(stepTitle = R.string.help_step_5) }
+    }
+}
+
+@Composable
+private fun HelpCard(@StringRes title: Int, @StringRes body: Int) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(id = title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(id = body),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpStepCard(
+    @StringRes stepTitle: Int,
+    subSteps: List<Int> = emptyList()
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(id = stepTitle),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            if (subSteps.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                subSteps.forEach { subStep ->
+                    Text(
+                        text = "• " + stringResource(id = subStep),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
         }
     }
 }
