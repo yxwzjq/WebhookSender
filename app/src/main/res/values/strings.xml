@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TodoRec</string>
+    <!-- 帮助页 -->
+    <string name="help_title">使用说明</string>
+    <string name="help_app_desc_title">一、软件说明</string>
+    <string name="help_app_desc">本软件可以将待办项直接发到钉钉的AI表格中，并进行记录。</string>
+    <string name="help_steps_title">二、使用步骤</string>
+    <string name="help_step_1">1、在钉钉的AI表格中新建“待办事项”文档；</string>
+    <string name="help_step_2">2、在新建的文档中的自动化中新建工作流；</string>
+    <string name="help_step_3_1">3.1 接收到数据时</string>
+    <string name="help_step_3_1_1">3.1.1 把Webhook的地址记录下来待使用；</string>
+    <string name="help_step_3_1_2">3.1.2 关键词1：填写“todos”；</string>
+    <string name="help_step_3_1_3">3.1.3 参数格式：选择“Text”。</string>
+    <string name="help_step_3_2">3.2 参数提取</string>
+    <string name="help_step_3_2_1">3.2.1 用到的AI模型：随便选一个就可以；</string>
+    <string name="help_step_3_2_2">3.2.2 待提取的文本：将“1.接收到数据时返回内容”的content写入txt中，将deadline写入time中，将priority写入pri中。注意：“1.接收到数据时返回内容”使用插入变量插入；</string>
+    <string name="help_step_3_2_3">3.2.3 新建三个参数：txt是文本格式，time是日期时间格式，pri是文本格式。</string>
+    <string name="help_step_3_3">3.3 新增记录</string>
+    <string name="help_step_3_3_1">3.3.1 选择新建的待办事项数据表；</string>
+    <string name="help_step_3_3_2">3.3.2 设置记录内容：待办事项选择“参数提取|txt”，截止时间选择“参数提取|time”，优先级选择“参数提取|pri”。</string>
+    <string name="help_step_4">4、发布流程即可。</string>
+    <string name="help_step_5">5、在本软件配置Webhook地址即可。</string>
 </resources>
